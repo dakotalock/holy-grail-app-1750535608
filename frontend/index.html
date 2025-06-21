@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Full-Stack Counter</title>
+    <!-- Tailwind CSS CDN for quick styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom CSS for extreme centering and app container styling */
+        body {
+            /* Ensure the body takes full viewport height for centering */
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f3f4f6; /* Light gray background */
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+        }
+
+        /* Main app container styling */
+        #app {
+            background-color: #ffffff; /* White background for the app card */
+            padding: 2.5rem; /* Large padding */
+            border-radius: 0.75rem; /* Rounded corners */
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* Subtle shadow */
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* Space between elements */
+            max-width: 90%; /* Responsive max width */
+            width: 400px; /* Fixed width for larger screens */
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 640px) {
+            #app {
+                padding: 1.5rem; /* Smaller padding on small screens */
+                gap: 1rem;
+            }
+            #counter-display {
+                font-size: 4rem; /* Smaller font size for counter on small screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main application container -->
+    <div id="app">
+        <!-- Application Title -->
+        <h1 class="text-3xl font-extrabold text-gray-800">Simple Full-Stack Counter</h1>
+
+        <!-- Counter Display Area -->
+        <!-- Visually prominent display for the current counter value -->
+        <div id="counter-display" class="text-7xl font-bold text-blue-600 my-4">0</div>
+
+        <!-- Increment Button -->
+        <!-- User interaction point to increment the counter -->
+        <button id="increment-button"
+                class="bg-blue-500 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-300 ease-in-out transform hover:scale-105
+                       focus:outline-none focus:ring-4 focus:ring-blue-300 focus:ring-opacity-75"
+                aria-label="Increment the counter value">
+            Increment Counter
+        </button>
+
+        <!-- Status Message Area -->
+        <!-- Displays loading states, success messages, or error messages -->
+        <p id="status-message" class="text-sm text-gray-600 mt-2 min-h-[1.25rem]" aria-live="polite" aria-atomic="true"></p>
+    </div>
+
+    <script>
+        // --- DOM Element References ---
+        const counterDisplay = document.getElementById('counter-display');
+        const incrementButton = document.getElementById('increment-button');
+        const statusMessage = document.getElementById('status-message');
+
+        // --- API Base URL ---
+        // Using a relative path as the frontend is served by the same Flask backend,
+        // which avoids CORS issues and makes deployment flexible.
+        const API_BASE_PATH = '/api';
+
+        /**
+         * Fetches the current counter value from the backend API.
+         * Updates the counter display and status message based on the response.
+         */
+        async function fetchCounter() {
+            statusMessage.textContent = 'Loading counter...';
+            statusMessage.classList.remove('text-red-500', 'text-green-500'); // Clear previous status colors
+            statusMessage.classList.add('text-gray-600');
+
+            try {
+                // Perform a GET request to the /api/counter endpoint
+                const response = await fetch(`${API_BASE_PATH}/counter`);
+
+                // Check if the HTTP response status is OK (200-299)
+                if (!response.ok) {
+                    // If not OK, parse error message from response or use generic
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+                }
+
+                // Parse the JSON response
+                const data = await response.json();
+
+                // Update the counter display with the fetched value
+                counterDisplay.textContent = data.value;
+                statusMessage.textContent = 'Counter loaded successfully.';
+                statusMessage.classList.remove('text-gray-600');
+                statusMessage.classList.add('text-green-500');
+
+            } catch (error) {
+                // Handle any errors during the fetch operation
+                console.error('Error fetching counter:', error);
+                counterDisplay.textContent = 'Error!'; // Indicate an error on display
+                statusMessage.textContent = `Failed to load counter: ${error.message}`;
+                statusMessage.classList.remove('text-gray-600', 'text-green-500');
+                statusMessage.classList.add('text-red-500');
+            } finally {
+                // Ensure the status message clears after a short delay for better UX
+                setTimeout(() => {
+                    if (statusMessage.textContent.includes('successfully') || statusMessage.textContent.includes('Error')) {
+                        statusMessage.textContent = '';
+                    }
+                }, 3000); // Clear after 3 seconds
+            }
+        }
+
+        /**
+         * Increments the counter value via the backend API.
+         * Updates the counter display and status message based on the response.
+         * Disables the button during the request to prevent multiple rapid clicks.
+         */
+        async function incrementCounter() {
+            // Provide immediate feedback to the user
+            statusMessage.textContent = 'Incrementing...';
+            statusMessage.classList.remove('text-red-500', 'text-green-500');
+            statusMessage.classList.add('text-gray-600');
+            incrementButton.disabled = true; // Disable button to prevent double-clicks
+            incrementButton.classList.add('opacity-50', 'cursor-not-allowed'); // Visual feedback for disabled state
+
+            try {
+                // Perform a POST request to the /api/counter/increment endpoint
+                const response = await fetch(`${API_BASE_PATH}/counter/increment`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json' // Although body is empty, good practice to include
+                    },
+                    body: JSON.stringify({}) // Send an empty JSON object
+                });
+
+                // Check if the HTTP response status is OK
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    throw new Error(errorData.error || `HTTP error! Status: ${response.status}`);
+                }
+
+                // Parse the JSON response
+                const data = await response.json();
+
+                // Update the counter display with the new value
+                counterDisplay.textContent = data.value;
+                statusMessage.textContent = 'Counter incremented successfully!';
+                statusMessage.classList.remove('text-gray-600');
+                statusMessage.classList.add('text-green-500');
+
+            } catch (error) {
+                // Handle any errors during the increment operation
+                console.error('Error incrementing counter:', error);
+                statusMessage.textContent = `Failed to increment counter: ${error.message}`;
+                statusMessage.classList.remove('text-gray-600', 'text-green-500');
+                statusMessage.classList.add('text-red-500');
+            } finally {
+                // Re-enable the button and clear its visual disabled state
+                incrementButton.disabled = false;
+                incrementButton.classList.remove('opacity-50', 'cursor-not-allowed');
+                // Clear status message after a delay
+                setTimeout(() => {
+                    if (statusMessage.textContent.includes('successfully') || statusMessage.textContent.includes('Failed')) {
+                        statusMessage.textContent = '';
+                    }
+                }, 3000);
+            }
+        }
+
+        // --- Event Listeners ---
+        // Fetch the counter value as soon as the DOM is fully loaded
+        document.addEventListener('DOMContentLoaded', fetchCounter);
+
+        // Add event listener to the increment button
+        incrementButton.addEventListener('click', incrementCounter);
+    </script>
+
+    <div style="position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.7);color:white;padding:5px 10px;border-radius:5px;font-family:sans-serif;font-size:12px">
+        Created by Dakota Rain Lock, powered by Holy Grail. A Dakota Rain Lock Invention.
+    </div>
+    
+</body>
+</html>
